@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFB File Processor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300;6..12,400;6..12,500;6..12,600;6..12,700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --navy-deep: #071E30;
+    --surface: #0D2D4A;
+    --surface-raised: #103556;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.13);
+    --text: #E8EDF2;
+    --text-dim: #8DA4B8;
+    --text-muted: #5A7A94;
+    --pink: #E81F76;
+    --pink-soft: #F06AA0;
+    --pink-bg: rgba(232,31,118,0.08);
+    --pink-border: rgba(232,31,118,0.15);
+    --turquoise: #44BDA9;
+    --turquoise-bg: rgba(68,189,169,0.1);
+    --turquoise-border: rgba(68,189,169,0.18);
+    --yellow: #F5C542;
+    --yellow-bg: rgba(245,197,66,0.1);
+    --radius: 10px;
+    --radius-lg: 14px;
+    --font: 'Nunito Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  body {
+    font-family: var(--font);
+    background: var(--navy-deep);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 48px 20px;
+  }
+  .app { width: 100%; max-width: 480px; }
+
+  .header { display: flex; align-items: center; margin-bottom: 32px; }
+  .app-name { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+  .app-name span { color: var(--pink); }
+  .db-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    margin-left: auto; cursor: pointer; user-select: none; transition: all 0.2s;
+  }
+  .db-badge.on { background: var(--turquoise-bg); color: var(--turquoise); }
+  .db-badge.off { background: var(--yellow-bg); color: var(--yellow); }
+  .db-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .db-badge.on .db-dot { background: var(--turquoise); }
+  .db-badge.off .db-dot { background: var(--yellow); }
+
+  .steps-bar { display: flex; align-items: center; gap: 0; margin-bottom: 24px; }
+  .step-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; transition: all 0.2s;
+  }
+  .step-pill.active { background: rgba(255,255,255,0.06); color: var(--text); }
+  .step-pill.done { background: var(--turquoise-bg); color: var(--turquoise); }
+  .step-pill.upcoming { background: transparent; color: var(--text-muted); }
+  .step-num {
+    width: 20px; height: 20px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+  }
+  .step-pill.active .step-num { background: rgba(255,255,255,0.08); }
+  .step-pill.done .step-num { background: rgba(68,189,169,0.15); }
+  .step-pill.upcoming .step-num { background: rgba(255,255,255,0.04); }
+  .step-connector { flex: 0 0 24px; height: 1px; background: var(--border); }
+
+  .drop-zone {
+    background: var(--surface); border: 1.5px dashed var(--border-hover);
+    border-radius: var(--radius-lg); padding: 48px 24px; text-align: center;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .drop-zone:hover, .drop-zone.over { border-color: var(--pink); background: rgba(232,31,118,0.03); }
+  .drop-icon {
+    width: 48px; height: 48px; margin: 0 auto 16px; border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+  }
+  .drop-zone:hover .drop-icon { background: var(--pink-bg); }
+  .drop-icon svg { width: 22px; height: 22px; color: var(--text); transition: color 0.15s; }
+  .drop-zone:hover .drop-icon svg { color: var(--pink-soft); }
+  .drop-zone h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .drop-zone p { font-size: 13px; color: var(--text-muted); }
+
+  .processing {
+    display: none; text-align: center; padding: 48px 24px;
+    background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border);
+  }
+  .processing.show { display: block; }
+  .spinner {
+    width: 36px; height: 36px; margin: 0 auto 16px;
+    border: 3px solid rgba(255,255,255,0.08); border-top-color: var(--pink);
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing p { font-size: 14px; color: var(--text-dim); }
+
+  .panel { display: none; }
+  .panel.show { display: block; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .status-bar {
+    display: flex; align-items: center; gap: 12px; padding: 16px 18px;
+    border-radius: var(--radius); margin-bottom: 16px;
+  }
+  .status-bar.ok { background: var(--turquoise-bg); border: 1px solid var(--turquoise-border); }
+  .status-bar.bad { background: var(--pink-bg); border: 1px solid var(--pink-border); }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .status-bar.ok .status-dot { background: var(--turquoise); }
+  .status-bar.bad .status-dot { background: var(--pink); }
+  .status-msg { font-size: 14px; font-weight: 700; }
+  .status-bar.ok .status-msg { color: var(--turquoise); }
+  .status-bar.bad .status-msg { color: var(--pink); }
+  .status-sub { font-size: 12px; margin-top: 2px; }
+  .status-bar.ok .status-sub { color: var(--turquoise); opacity: 0.7; }
+  .status-bar.bad .status-sub { color: var(--pink-soft); opacity: 0.8; }
+
+  .summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .sum-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 10px; text-align: center;
+  }
+  .sum-num { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+  .sum-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); margin-top: 4px;
+  }
+
+  .campaign-toggle {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; margin-bottom: 16px;
+    transition: all 0.12s; user-select: none;
+  }
+  .campaign-toggle:hover { border-color: var(--border-hover); }
+  .campaign-toggle-label { font-size: 13px; font-weight: 600; color: var(--text-dim); flex: 1; }
+  .campaign-toggle-hint { font-size: 11px; color: var(--text-muted); }
+  .campaign-chevron { font-size: 14px; color: var(--text-muted); transition: transform 0.2s; }
+  .campaign-toggle.open .campaign-chevron { transform: rotate(90deg); }
+  .campaign-body { display: none; padding: 0 0 16px; }
+  .campaign-body.open { display: block; animation: fadeUp 0.2s ease; }
+  .campaign-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .field-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text-dim); margin-bottom: 5px; }
+  .field-group input {
+    width: 100%; padding: 10px 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: var(--font); font-size: 14px; font-weight: 500;
+    outline: none; transition: border-color 0.15s;
+  }
+  .field-group input:focus { border-color: rgba(255,255,255,0.25); }
+  .field-group input::placeholder { color: var(--text-muted); }
+
+  .action-btn {
+    width: 100%; padding: 14px; border: none; border-radius: var(--radius);
+    font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s; background: var(--pink); color: white;
+  }
+  .action-btn:hover { filter: brightness(1.1); }
+
+  .downloads { display: flex; flex-direction: column; gap: 6px; }
+  .dl-row {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; transition: all 0.12s; text-decoration: none;
+  }
+  .dl-row:hover { border-color: var(--border-hover); background: var(--surface-raised); }
+  .dl-icon {
+    width: 34px; height: 34px; border-radius: 8px; background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.12s;
+  }
+  .dl-row:hover .dl-icon { background: var(--pink-bg); }
+  .dl-icon svg { width: 16px; height: 16px; color: var(--text); transition: color 0.12s; }
+  .dl-row:hover .dl-icon svg { color: var(--pink-soft); }
+  .dl-text { flex: 1; }
+  .dl-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .dl-sub { font-size: 12px; color: var(--text-muted); }
+  .dl-arrow { font-size: 18px; color: var(--text-muted); }
+
+  .reset-btn {
+    display: block; margin: 24px auto 0; padding: 10px 24px; background: transparent;
+    border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--font);
+    font-size: 13px; font-weight: 600; color: var(--text-dim); cursor: pointer; transition: all 0.12s;
+  }
+  .reset-btn:hover { border-color: var(--border-hover); color: var(--text); }
+
+  .recent { display: none; margin-top: 28px; }
+  .recent.show { display: block; }
+  .recent-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px;
+  }
+  .recent-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 6px; overflow: hidden;
+  }
+  .recent-header {
+    display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .recent-header:hover { background: rgba(255,255,255,0.015); }
+  .recent-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .recent-dot.scanline { background: var(--turquoise); }
+  .recent-dot.portal { background: var(--pink); }
+  .recent-name {
+    font-size: 13px; font-weight: 600; color: var(--text); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .recent-stage {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  }
+  .recent-stage.scanline { background: var(--turquoise-bg); color: var(--turquoise); }
+  .recent-stage.portal { background: var(--pink-bg); color: var(--pink-soft); }
+  .recent-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .recent-chevron { font-size: 14px; color: var(--text-muted); transition: transform 0.15s; flex-shrink: 0; }
+  .recent-item.open .recent-chevron { transform: rotate(90deg); }
+  .recent-body { display: none; padding: 0 14px 10px; }
+  .recent-item.open .recent-body { display: block; }
+  .recent-dl {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-radius: 6px; cursor: pointer; transition: background 0.1s;
+    font-size: 13px; color: var(--text); font-weight: 500;
+  }
+  .recent-dl:hover { background: rgba(255,255,255,0.025); }
+  .recent-dl svg { width: 14px; height: 14px; color: var(--pink-soft); flex-shrink: 0; }
+  .recent-dl-count { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="app-name">RFB <span>File Processor</span></div>
+    <div class="db-badge on" id="dbBadge">
+      <span class="db-dot"></span>
+      <span id="dbLabel">DB connected</span>
+    </div>
+  </div>
+
+  <div class="steps-bar">
+    <div class="step-pill active" id="step1pill"><div class="step-num">1</div>Scanline</div>
+    <div class="step-connector"></div>
+    <div class="step-pill upcoming" id="step2pill"><div class="step-num">2</div>Portal format</div>
+  </div>
+
+  <div id="uploadPanel">
+    <div class="drop-zone" id="drop">
+      <div class="drop-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/></svg>
+      </div>
+      <h3>Drop your file here or click to browse</h3>
+      <p>.xlsx or .csv</p>
+    </div>
+  </div>
+
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <p id="processingMsg">Generating scanlines...</p>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="panel" id="step2Panel">
+    <div class="status-bar ok">
+      <div class="status-dot"></div>
+      <div>
+        <div class="status-msg">Step 1 complete</div>
+        <div class="status-sub" id="step1Sub">13,044 records processed. 615 addressee corrections applied.</div>
+      </div>
+    </div>
+    <div class="summary" id="summaryCards">
+      <div class="sum-card"><div class="sum-num" id="totalNum">13,044</div><div class="sum-label">Total records</div></div>
+      <div class="sum-card"><div class="sum-num" id="orgNum">586</div><div class="sum-label">Organizations</div></div>
+      <div class="sum-card"><div class="sum-num" id="indNum">12,458</div><div class="sum-label">Individuals</div></div>
+    </div>
+    <div class="campaign-toggle" id="campaignToggle" onclick="toggleCampaign()">
+      <span class="campaign-toggle-label">Campaign details</span>
+      <span class="campaign-toggle-hint">Optional</span>
+      <span class="campaign-chevron">&#8250;</span>
+    </div>
+    <div class="campaign-body" id="campaignBody">
+      <div class="campaign-fields">
+        <div class="field-group"><label>Store</label><input type="text" id="storeInput" placeholder="RFBB0001"></div>
+        <div class="field-group"><label>Creative</label><input type="text" id="creativeInput" placeholder="April HV"></div>
+        <div class="field-group"><label>Event date</label><input type="text" id="eventdateInput" placeholder="April 1, 2026"></div>
+      </div>
+    </div>
+    <button class="action-btn" id="formatBtn" onclick="runStep2()">Format for Portal 1</button>
+  </div>
+
+  <!-- ERROR -->
+  <div class="panel" id="errorPanel">
+    <div class="status-bar bad">
+      <div class="status-dot"></div>
+      <div><div class="status-msg">Problem found</div><div class="status-sub" id="errorMsg">Something went wrong.</div></div>
+    </div>
+    <button class="reset-btn" onclick="fullReset()">Try another file</button>
+  </div>
+
+  <!-- FINAL -->
+  <div class="panel" id="finalPanel">
+    <div class="status-bar ok">
+      <div class="status-dot"></div>
+      <div><div class="status-msg">Ready to download</div><div class="status-sub" id="finalSub">Formatted for Portal 1.</div></div>
+    </div>
+    <div class="summary">
+      <div class="sum-card"><div class="sum-num" id="fTotalNum">13,044</div><div class="sum-label">Total records</div></div>
+      <div class="sum-card"><div class="sum-num" id="fOrgNum">586</div><div class="sum-label">Organizations</div></div>
+      <div class="sum-card"><div class="sum-num" id="fIndNum">12,458</div><div class="sum-label">Individuals</div></div>
+    </div>
+    <div class="downloads" id="downloads">
+      <a class="dl-row" onclick="dlClick('Full list')">
+        <div class="dl-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg></div>
+        <div class="dl-text"><div class="dl-title">Full list</div><div class="dl-sub" id="dlFullSub">All 13,044 records</div></div>
+        <span class="dl-arrow">&#8250;</span>
+      </a>
+      <a class="dl-row" id="dlOrgRow" onclick="dlClick('Organizations')">
+        <div class="dl-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg></div>
+        <div class="dl-text"><div class="dl-title">Organizations only</div><div class="dl-sub" id="dlOrgSub">586 records</div></div>
+        <span class="dl-arrow">&#8250;</span>
+      </a>
+      <a class="dl-row" id="dlIndRow" onclick="dlClick('Individuals')">
+        <div class="dl-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg></div>
+        <div class="dl-text"><div class="dl-title">Individuals only</div><div class="dl-sub" id="dlIndSub">12,458 records</div></div>
+        <span class="dl-arrow">&#8250;</span>
+      </a>
+    </div>
+    <button class="reset-btn" onclick="fullReset()">Process another file</button>
+  </div>
+
+  <div class="recent" id="recent">
+    <div class="recent-title">Recent files</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<script>
+var drop = document.getElementById('drop');
+var uploadPanel = document.getElementById('uploadPanel');
+var processing = document.getElementById('processing');
+var processingMsg = document.getElementById('processingMsg');
+var step2Panel = document.getElementById('step2Panel');
+var errorPanel = document.getElementById('errorPanel');
+var finalPanel = document.getElementById('finalPanel');
+var recent = document.getElementById('recent');
+var recentList = document.getElementById('recentList');
+var dbBadge = document.getElementById('dbBadge');
+var dbLabel = document.getElementById('dbLabel');
+var step1pill = document.getElementById('step1pill');
+var step2pill = document.getElementById('step2pill');
+var campaignToggle = document.getElementById('campaignToggle');
+var campaignBody = document.getElementById('campaignBody');
+var campaignOpen = false;
+
+var dlSvgSmall = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;color:#F06AA0;flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>';
+
+var recentFiles = [];
+var demoCount = 0;
+var demoFiles = [
+  { name: 'RFBB_As_Submitted_for_Dev_Script.xlsx', total: '13,044', orgs: '586', indivs: '12,458', corrections: 615 },
+  { name: 'RFBB_Spring_Campaign_2026.xlsx', total: '8,721', orgs: '312', indivs: '8,409', corrections: 401 },
+];
+
+var dbOn = true;
+dbBadge.addEventListener('click', function() {
+  dbOn = !dbOn;
+  dbBadge.className = dbOn ? 'db-badge on' : 'db-badge off';
+  dbLabel.textContent = dbOn ? 'DB connected' : 'DB offline';
+});
+
+function setStep(n) {
+  step1pill.className = 'step-pill ' + (n === 1 ? 'active' : 'done');
+  step2pill.className = 'step-pill ' + (n === 1 ? 'upcoming' : n === 2 ? 'active' : 'done');
+}
+
+function toggleCampaign() {
+  campaignOpen = !campaignOpen;
+  campaignToggle.className = campaignOpen ? 'campaign-toggle open' : 'campaign-toggle';
+  campaignBody.className = campaignOpen ? 'campaign-body open' : 'campaign-body';
+}
+
+function startStep1() {
+  var demo = demoFiles[demoCount % demoFiles.length];
+  demoCount++;
+  uploadPanel.style.display = 'none';
+  recent.classList.remove('show');
+  processingMsg.textContent = 'Generating scanlines...';
+  processing.classList.add('show');
+  setStep(1);
+
+  setTimeout(function() {
+    processing.classList.remove('show');
+    setStep(2);
+    document.getElementById('step1Sub').textContent =
+      demo.corrections > 0
+        ? demo.total + ' records processed. ' + demo.corrections + ' addressee corrections applied.'
+        : demo.total + ' records processed. All checks passed.';
+    document.getElementById('totalNum').textContent = demo.total;
+    document.getElementById('orgNum').textContent = demo.orgs;
+    document.getElementById('indNum').textContent = demo.indivs;
+    campaignOpen = false;
+    campaignToggle.className = 'campaign-toggle';
+    campaignBody.className = 'campaign-body';
+    step2Panel.classList.add('show');
+    window._currentDemo = demo;
+  }, 1200);
+}
+
+function runStep2() {
+  step2Panel.classList.remove('show');
+  processingMsg.textContent = 'Formatting for Portal 1...';
+  processing.classList.add('show');
+  var demo = window._currentDemo;
+
+  setTimeout(function() {
+    processing.classList.remove('show');
+    setStep(3);
+    document.getElementById('fTotalNum').textContent = demo.total;
+    document.getElementById('fOrgNum').textContent = demo.orgs;
+    document.getElementById('fIndNum').textContent = demo.indivs;
+    document.getElementById('dlFullSub').textContent = 'All ' + demo.total + ' records';
+    document.getElementById('dlOrgSub').textContent = demo.orgs + ' records';
+    document.getElementById('dlIndSub').textContent = demo.indivs + ' records';
+    if (demo.orgs === '0') {
+      document.getElementById('dlOrgRow').style.display = 'none';
+      document.getElementById('dlIndRow').style.display = 'none';
+    } else {
+      document.getElementById('dlOrgRow').style.display = '';
+      document.getElementById('dlIndRow').style.display = '';
+    }
+    demo.stage = 'portal';
+    recentFiles.unshift(demo);
+    finalPanel.classList.add('show');
+  }, 800);
+}
+
+function dlClick(type) { alert('Downloading: ' + type); }
+
+function fullReset() {
+  step2Panel.classList.remove('show');
+  errorPanel.classList.remove('show');
+  finalPanel.classList.remove('show');
+  uploadPanel.style.display = '';
+  document.getElementById('storeInput').value = '';
+  document.getElementById('creativeInput').value = '';
+  document.getElementById('eventdateInput').value = '';
+  setStep(1);
+  renderRecent();
+}
+
+function renderRecent() {
+  if (recentFiles.length === 0) { recent.classList.remove('show'); return; }
+  recent.classList.add('show');
+  var html = '';
+  var now = new Date();
+  for (var i = 0; i < recentFiles.length; i++) {
+    var h = recentFiles[i];
+    var time = new Date(now - i * 47 * 60000);
+    var ts = time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var hasOrgs = h.orgs !== '0';
+    var stageClass = h.stage === 'portal' ? 'portal' : 'scanline';
+    var stageLabel = h.stage === 'portal' ? 'Portal' : 'Scanline';
+    html += '<div class="recent-item" id="ri' + i + '">' +
+      '<div class="recent-header" onclick="toggleRecent(' + i + ')">' +
+        '<div class="recent-dot ' + stageClass + '"></div>' +
+        '<div class="recent-name">' + h.name + '</div>' +
+        '<span class="recent-stage ' + stageClass + '">' + stageLabel + '</span>' +
+        '<div class="recent-meta">' + ts + '</div>' +
+        '<div class="recent-chevron">&#8250;</div>' +
+      '</div>' +
+      '<div class="recent-body">' +
+        '<div class="recent-dl" onclick="dlClick(\'Full: ' + h.name + '\')">' + dlSvgSmall + ' Full list <span class="recent-dl-count">' + h.total + '</span></div>' +
+        (hasOrgs ? '<div class="recent-dl" onclick="dlClick(\'Orgs: ' + h.name + '\')">' + dlSvgSmall + ' Organizations <span class="recent-dl-count">' + h.orgs + '</span></div>' : '') +
+        (hasOrgs ? '<div class="recent-dl" onclick="dlClick(\'Indivs: ' + h.name + '\')">' + dlSvgSmall + ' Individuals <span class="recent-dl-count">' + h.indivs + '</span></div>' : '') +
+      '</div>' +
+    '</div>';
+  }
+  recentList.innerHTML = html;
+}
+
+function toggleRecent(i) { document.getElementById('ri' + i).classList.toggle('open'); }
+
+drop.addEventListener('click', startStep1);
+drop.addEventListener('dragover', function(e) { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', function() { drop.classList.remove('over'); });
+drop.addEventListener('drop', function(e) { e.preventDefault(); drop.classList.remove('over'); startStep1(); });
+</script>
+</body>
+</html>
