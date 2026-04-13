@@ -1,4 +1,4 @@
-# RFB File Processor
+# RFB List Processor
 
 Web-based tool for processing Regional Food Bank data files. Replaces the LINQPad script (Step 1), and the manual list formatting (Step 2).
 
