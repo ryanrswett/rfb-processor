@@ -1,6 +1,6 @@
 # RFB File Processor
 
-Web-based tool for processing Regional Food Bank data files. Replaces the manual SOP, the LINQPad script (Step 1), and the Excel formatting (Step 2).
+Web-based tool for processing Regional Food Bank data files. Replaces the LINQPad script (Step 1), and the manual list formatting (Step 2).
 
 ## Quick start (local)
 
