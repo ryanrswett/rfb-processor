@@ -46,7 +46,7 @@
   .db-badge {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 600;
-    margin-left: auto; cursor: pointer; user-select: none; transition: all 0.2s;
+    margin-left: auto; transition: all 0.2s;
   }
   .db-badge.on { background: var(--turquoise-bg); color: var(--turquoise); }
   .db-badge.off { background: var(--yellow-bg); color: var(--yellow); }
@@ -225,7 +225,7 @@
   .recent-dl {
     display: flex; align-items: center; gap: 8px; padding: 8px 10px;
     border-radius: 6px; cursor: pointer; transition: background 0.1s;
-    font-size: 13px; color: var(--text); font-weight: 500;
+    font-size: 13px; color: var(--text); font-weight: 500; text-decoration: none;
   }
   .recent-dl:hover { background: rgba(255,255,255,0.025); }
   .recent-dl svg { width: 14px; height: 14px; color: var(--pink-soft); flex-shrink: 0; }
@@ -237,9 +237,9 @@
 <div class="app">
   <div class="header">
     <div class="app-name">RFB <span>File Processor</span></div>
-    <div class="db-badge on" id="dbBadge">
+    <div class="db-badge off" id="dbBadge">
       <span class="db-dot"></span>
-      <span id="dbLabel">DB connected</span>
+      <span id="dbLabel">Checking...</span>
     </div>
   </div>
 
@@ -249,7 +249,9 @@
     <div class="step-pill upcoming" id="step2pill"><div class="step-num">2</div>Portal format</div>
   </div>
 
+  <!-- UPLOAD -->
   <div id="uploadPanel">
+    <input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none">
     <div class="drop-zone" id="drop">
       <div class="drop-icon">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/></svg>
@@ -259,24 +261,25 @@
     </div>
   </div>
 
+  <!-- PROCESSING -->
   <div class="processing" id="processing">
     <div class="spinner"></div>
     <p id="processingMsg">Generating scanlines...</p>
   </div>
 
-  <!-- STEP 2 -->
+  <!-- STEP 2: Campaign fields -->
   <div class="panel" id="step2Panel">
     <div class="status-bar ok">
       <div class="status-dot"></div>
       <div>
         <div class="status-msg">Step 1 complete</div>
-        <div class="status-sub" id="step1Sub">13,044 records processed. 615 addressee corrections applied.</div>
+        <div class="status-sub" id="step1Sub"></div>
       </div>
     </div>
-    <div class="summary" id="summaryCards">
-      <div class="sum-card"><div class="sum-num" id="totalNum">13,044</div><div class="sum-label">Total records</div></div>
-      <div class="sum-card"><div class="sum-num" id="orgNum">586</div><div class="sum-label">Organizations</div></div>
-      <div class="sum-card"><div class="sum-num" id="indNum">12,458</div><div class="sum-label">Individuals</div></div>
+    <div class="summary">
+      <div class="sum-card"><div class="sum-num" id="totalNum">-</div><div class="sum-label">Total records</div></div>
+      <div class="sum-card"><div class="sum-num" id="orgNum">-</div><div class="sum-label">Organizations</div></div>
+      <div class="sum-card"><div class="sum-num" id="indNum">-</div><div class="sum-label">Individuals</div></div>
     </div>
     <div class="campaign-toggle" id="campaignToggle" onclick="toggleCampaign()">
       <span class="campaign-toggle-label">Campaign details</span>
@@ -290,46 +293,36 @@
         <div class="field-group"><label>Event date</label><input type="text" id="eventdateInput" placeholder="April 1, 2026"></div>
       </div>
     </div>
-    <button class="action-btn" id="formatBtn" onclick="runStep2()">Format for Portal 1</button>
+    <button class="action-btn" onclick="runStep2()">Format for Portal 1</button>
   </div>
 
   <!-- ERROR -->
   <div class="panel" id="errorPanel">
     <div class="status-bar bad">
       <div class="status-dot"></div>
-      <div><div class="status-msg">Problem found</div><div class="status-sub" id="errorMsg">Something went wrong.</div></div>
+      <div>
+        <div class="status-msg">Problem found</div>
+        <div class="status-sub" id="errorMsg"></div>
+      </div>
     </div>
     <button class="reset-btn" onclick="fullReset()">Try another file</button>
   </div>
 
-  <!-- FINAL -->
+  <!-- FINAL DOWNLOADS -->
   <div class="panel" id="finalPanel">
     <div class="status-bar ok">
       <div class="status-dot"></div>
-      <div><div class="status-msg">Ready to download</div><div class="status-sub" id="finalSub">Formatted for Portal 1.</div></div>
+      <div>
+        <div class="status-msg">Ready to download</div>
+        <div class="status-sub">Formatted for Portal 1.</div>
+      </div>
     </div>
     <div class="summary">
-      <div class="sum-card"><div class="sum-num" id="fTotalNum">13,044</div><div class="sum-label">Total records</div></div>
-      <div class="sum-card"><div class="sum-num" id="fOrgNum">586</div><div class="sum-label">Organizations</div></div>
-      <div class="sum-card"><div class="sum-num" id="fIndNum">12,458</div><div class="sum-label">Individuals</div></div>
+      <div class="sum-card"><div class="sum-num" id="fTotalNum">-</div><div class="sum-label">Total records</div></div>
+      <div class="sum-card"><div class="sum-num" id="fOrgNum">-</div><div class="sum-label">Organizations</div></div>
+      <div class="sum-card"><div class="sum-num" id="fIndNum">-</div><div class="sum-label">Individuals</div></div>
     </div>
-    <div class="downloads" id="downloads">
-      <a class="dl-row" onclick="dlClick('Full list')">
-        <div class="dl-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg></div>
-        <div class="dl-text"><div class="dl-title">Full list</div><div class="dl-sub" id="dlFullSub">All 13,044 records</div></div>
-        <span class="dl-arrow">&#8250;</span>
-      </a>
-      <a class="dl-row" id="dlOrgRow" onclick="dlClick('Organizations')">
-        <div class="dl-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg></div>
-        <div class="dl-text"><div class="dl-title">Organizations only</div><div class="dl-sub" id="dlOrgSub">586 records</div></div>
-        <span class="dl-arrow">&#8250;</span>
-      </a>
-      <a class="dl-row" id="dlIndRow" onclick="dlClick('Individuals')">
-        <div class="dl-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg></div>
-        <div class="dl-text"><div class="dl-title">Individuals only</div><div class="dl-sub" id="dlIndSub">12,458 records</div></div>
-        <span class="dl-arrow">&#8250;</span>
-      </a>
-    </div>
+    <div class="downloads" id="downloads"></div>
     <button class="reset-btn" onclick="fullReset()">Process another file</button>
   </div>
 
@@ -340,42 +333,40 @@
 </div>
 
 <script>
-var drop = document.getElementById('drop');
-var uploadPanel = document.getElementById('uploadPanel');
-var processing = document.getElementById('processing');
-var processingMsg = document.getElementById('processingMsg');
-var step2Panel = document.getElementById('step2Panel');
-var errorPanel = document.getElementById('errorPanel');
-var finalPanel = document.getElementById('finalPanel');
-var recent = document.getElementById('recent');
-var recentList = document.getElementById('recentList');
-var dbBadge = document.getElementById('dbBadge');
-var dbLabel = document.getElementById('dbLabel');
-var step1pill = document.getElementById('step1pill');
-var step2pill = document.getElementById('step2pill');
-var campaignToggle = document.getElementById('campaignToggle');
-var campaignBody = document.getElementById('campaignBody');
+var $ = function(id) { return document.getElementById(id); };
+var uploadPanel = $('uploadPanel');
+var processing = $('processing');
+var processingMsg = $('processingMsg');
+var step2Panel = $('step2Panel');
+var errorPanel = $('errorPanel');
+var finalPanel = $('finalPanel');
+var recent = $('recent');
+var recentList = $('recentList');
+var drop = $('drop');
+var fileInput = $('fileInput');
+var campaignToggle = $('campaignToggle');
+var campaignBody = $('campaignBody');
 var campaignOpen = false;
 
+var dlSvg = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>';
 var dlSvgSmall = '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;color:#F06AA0;flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>';
 
+var currentJobId = null;
+var currentData = null;
 var recentFiles = [];
-var demoCount = 0;
-var demoFiles = [
-  { name: 'RFBB_As_Submitted_for_Dev_Script.xlsx', total: '13,044', orgs: '586', indivs: '12,458', corrections: 615 },
-  { name: 'RFBB_Spring_Campaign_2026.xlsx', total: '8,721', orgs: '312', indivs: '8,409', corrections: 401 },
-];
 
-var dbOn = true;
-dbBadge.addEventListener('click', function() {
-  dbOn = !dbOn;
-  dbBadge.className = dbOn ? 'db-badge on' : 'db-badge off';
-  dbLabel.textContent = dbOn ? 'DB connected' : 'DB offline';
+// Check DB status on load
+fetch('/api/status').then(function(r) { return r.json(); }).then(function(d) {
+  $('dbBadge').className = d.db_connected ? 'db-badge on' : 'db-badge off';
+  $('dbLabel').textContent = d.db_connected ? 'DB connected' : 'DB offline';
+}).catch(function() {
+  $('dbBadge').className = 'db-badge off';
+  $('dbLabel').textContent = 'DB offline';
 });
 
 function setStep(n) {
-  step1pill.className = 'step-pill ' + (n === 1 ? 'active' : 'done');
-  step2pill.className = 'step-pill ' + (n === 1 ? 'upcoming' : n === 2 ? 'active' : 'done');
+  $('step1pill').className = 'step-pill ' + (n === 1 ? 'active' : 'done');
+  $('step2pill').className = 'step-pill ' + (n === 1 ? 'upcoming' : n === 2 ? 'active' : 'done');
 }
 
 function toggleCampaign() {
@@ -384,75 +375,155 @@ function toggleCampaign() {
   campaignBody.className = campaignOpen ? 'campaign-body open' : 'campaign-body';
 }
 
-function startStep1() {
-  var demo = demoFiles[demoCount % demoFiles.length];
-  demoCount++;
+function showError(msg) {
+  processing.classList.remove('show');
+  $('errorMsg').textContent = msg;
+  errorPanel.classList.add('show');
+}
+
+function fmt(n) { return Number(n).toLocaleString(); }
+
+// File handling
+function handleFile(file) {
+  if (!file) return;
+  var ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'xlsx' && ext !== 'csv') {
+    showError('Unsupported file type. Please upload .xlsx or .csv');
+    return;
+  }
+
   uploadPanel.style.display = 'none';
   recent.classList.remove('show');
   processingMsg.textContent = 'Generating scanlines...';
   processing.classList.add('show');
   setStep(1);
 
-  setTimeout(function() {
-    processing.classList.remove('show');
-    setStep(2);
-    document.getElementById('step1Sub').textContent =
-      demo.corrections > 0
-        ? demo.total + ' records processed. ' + demo.corrections + ' addressee corrections applied.'
-        : demo.total + ' records processed. All checks passed.';
-    document.getElementById('totalNum').textContent = demo.total;
-    document.getElementById('orgNum').textContent = demo.orgs;
-    document.getElementById('indNum').textContent = demo.indivs;
-    campaignOpen = false;
-    campaignToggle.className = 'campaign-toggle';
-    campaignBody.className = 'campaign-body';
-    step2Panel.classList.add('show');
-    window._currentDemo = demo;
-  }, 1200);
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('list_id', '1');
+  formData.append('key_code_override', '');
+
+  fetch('/api/step1', { method: 'POST', body: formData })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Processing failed'); });
+      return r.json();
+    })
+    .then(function(data) {
+      processing.classList.remove('show');
+      setStep(2);
+
+      currentJobId = data.job_id;
+      currentData = {
+        name: file.name,
+        total: fmt(data.record_count),
+        orgs: fmt(data.org_count),
+        indivs: fmt(data.individual_count),
+        corrections: data.and_replaced_count,
+        job_id: data.job_id,
+        stage: 'scanline',
+      };
+
+      var sub = data.record_count.toLocaleString() + ' records processed.';
+      if (data.and_replaced_count > 0) sub += ' ' + data.and_replaced_count + ' addressee corrections applied.';
+      if (data.warnings && data.warnings.length > 0) sub += ' ' + data.warnings.length + ' warning(s).';
+      $('step1Sub').textContent = sub;
+      $('totalNum').textContent = fmt(data.record_count);
+      $('orgNum').textContent = fmt(data.org_count);
+      $('indNum').textContent = fmt(data.individual_count);
+
+      campaignOpen = false;
+      campaignToggle.className = 'campaign-toggle';
+      campaignBody.className = 'campaign-body';
+      step2Panel.classList.add('show');
+    })
+    .catch(function(err) {
+      showError(err.message);
+    });
 }
 
+drop.addEventListener('click', function() { fileInput.click(); });
+fileInput.addEventListener('change', function() { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+drop.addEventListener('dragover', function(e) { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', function() { drop.classList.remove('over'); });
+drop.addEventListener('drop', function(e) {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+// Step 2
 function runStep2() {
+  if (!currentJobId) return;
+
   step2Panel.classList.remove('show');
   processingMsg.textContent = 'Formatting for Portal 1...';
   processing.classList.add('show');
-  var demo = window._currentDemo;
 
-  setTimeout(function() {
-    processing.classList.remove('show');
-    setStep(3);
-    document.getElementById('fTotalNum').textContent = demo.total;
-    document.getElementById('fOrgNum').textContent = demo.orgs;
-    document.getElementById('fIndNum').textContent = demo.indivs;
-    document.getElementById('dlFullSub').textContent = 'All ' + demo.total + ' records';
-    document.getElementById('dlOrgSub').textContent = demo.orgs + ' records';
-    document.getElementById('dlIndSub').textContent = demo.indivs + ' records';
-    if (demo.orgs === '0') {
-      document.getElementById('dlOrgRow').style.display = 'none';
-      document.getElementById('dlIndRow').style.display = 'none';
-    } else {
-      document.getElementById('dlOrgRow').style.display = '';
-      document.getElementById('dlIndRow').style.display = '';
-    }
-    demo.stage = 'portal';
-    recentFiles.unshift(demo);
-    finalPanel.classList.add('show');
-  }, 800);
+  var formData = new FormData();
+  formData.append('job_id', currentJobId);
+  formData.append('store', ($('storeInput').value || '').trim());
+  formData.append('creative', ($('creativeInput').value || '').trim());
+  formData.append('eventdate', ($('eventdateInput').value || '').trim());
+
+  fetch('/api/step2', { method: 'POST', body: formData })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Formatting failed'); });
+      return r.json();
+    })
+    .then(function(data) {
+      processing.classList.remove('show');
+      setStep(3);
+
+      currentData.stage = 'portal';
+      currentData.total = fmt(data.record_count);
+      currentData.orgs = fmt(data.org_count);
+      currentData.indivs = fmt(data.individual_count);
+
+      $('fTotalNum').textContent = fmt(data.record_count);
+      $('fOrgNum').textContent = fmt(data.org_count);
+      $('fIndNum').textContent = fmt(data.individual_count);
+
+      var hasOrgs = data.org_count > 0;
+      var html = '<a class="dl-row" href="/api/download/' + currentJobId + '?stage=portal&segment=all" download>' +
+        '<div class="dl-icon">' + dlSvg + '</div>' +
+        '<div class="dl-text"><div class="dl-title">Full list</div><div class="dl-sub">All ' + fmt(data.record_count) + ' records</div></div>' +
+        '<span class="dl-arrow">&#8250;</span></a>';
+      if (hasOrgs) {
+        html += '<a class="dl-row" href="/api/download/' + currentJobId + '?stage=portal&segment=organizations" download>' +
+          '<div class="dl-icon">' + dlSvg + '</div>' +
+          '<div class="dl-text"><div class="dl-title">Organizations only</div><div class="dl-sub">' + fmt(data.org_count) + ' records</div></div>' +
+          '<span class="dl-arrow">&#8250;</span></a>';
+        html += '<a class="dl-row" href="/api/download/' + currentJobId + '?stage=portal&segment=individuals" download>' +
+          '<div class="dl-icon">' + dlSvg + '</div>' +
+          '<div class="dl-text"><div class="dl-title">Individuals only</div><div class="dl-sub">' + fmt(data.individual_count) + ' records</div></div>' +
+          '<span class="dl-arrow">&#8250;</span></a>';
+      }
+      $('downloads').innerHTML = html;
+
+      recentFiles.unshift(JSON.parse(JSON.stringify(currentData)));
+      finalPanel.classList.add('show');
+    })
+    .catch(function(err) {
+      showError(err.message);
+    });
 }
 
-function dlClick(type) { alert('Downloading: ' + type); }
-
+// Reset
 function fullReset() {
   step2Panel.classList.remove('show');
   errorPanel.classList.remove('show');
   finalPanel.classList.remove('show');
   uploadPanel.style.display = '';
-  document.getElementById('storeInput').value = '';
-  document.getElementById('creativeInput').value = '';
-  document.getElementById('eventdateInput').value = '';
+  fileInput.value = '';
+  $('storeInput').value = '';
+  $('creativeInput').value = '';
+  $('eventdateInput').value = '';
+  currentJobId = null;
+  currentData = null;
   setStep(1);
   renderRecent();
 }
 
+// Recent files
 function renderRecent() {
   if (recentFiles.length === 0) { recent.classList.remove('show'); return; }
   recent.classList.add('show');
@@ -465,6 +536,7 @@ function renderRecent() {
     var hasOrgs = h.orgs !== '0';
     var stageClass = h.stage === 'portal' ? 'portal' : 'scanline';
     var stageLabel = h.stage === 'portal' ? 'Portal' : 'Scanline';
+    var dlStage = h.stage === 'portal' ? 'portal' : 'scanline';
     html += '<div class="recent-item" id="ri' + i + '">' +
       '<div class="recent-header" onclick="toggleRecent(' + i + ')">' +
         '<div class="recent-dot ' + stageClass + '"></div>' +
@@ -474,21 +546,16 @@ function renderRecent() {
         '<div class="recent-chevron">&#8250;</div>' +
       '</div>' +
       '<div class="recent-body">' +
-        '<div class="recent-dl" onclick="dlClick(\'Full: ' + h.name + '\')">' + dlSvgSmall + ' Full list <span class="recent-dl-count">' + h.total + '</span></div>' +
-        (hasOrgs ? '<div class="recent-dl" onclick="dlClick(\'Orgs: ' + h.name + '\')">' + dlSvgSmall + ' Organizations <span class="recent-dl-count">' + h.orgs + '</span></div>' : '') +
-        (hasOrgs ? '<div class="recent-dl" onclick="dlClick(\'Indivs: ' + h.name + '\')">' + dlSvgSmall + ' Individuals <span class="recent-dl-count">' + h.indivs + '</span></div>' : '') +
+        '<a class="recent-dl" href="/api/download/' + h.job_id + '?stage=' + dlStage + '&segment=all" download>' + dlSvgSmall + ' Full list <span class="recent-dl-count">' + h.total + '</span></a>' +
+        (hasOrgs ? '<a class="recent-dl" href="/api/download/' + h.job_id + '?stage=' + dlStage + '&segment=organizations" download>' + dlSvgSmall + ' Organizations <span class="recent-dl-count">' + h.orgs + '</span></a>' : '') +
+        (hasOrgs ? '<a class="recent-dl" href="/api/download/' + h.job_id + '?stage=' + dlStage + '&segment=individuals" download>' + dlSvgSmall + ' Individuals <span class="recent-dl-count">' + h.indivs + '</span></a>' : '') +
       '</div>' +
     '</div>';
   }
   recentList.innerHTML = html;
 }
 
-function toggleRecent(i) { document.getElementById('ri' + i).classList.toggle('open'); }
-
-drop.addEventListener('click', startStep1);
-drop.addEventListener('dragover', function(e) { e.preventDefault(); drop.classList.add('over'); });
-drop.addEventListener('dragleave', function() { drop.classList.remove('over'); });
-drop.addEventListener('drop', function(e) { e.preventDefault(); drop.classList.remove('over'); startStep1(); });
+function toggleRecent(i) { $('ri' + i).classList.toggle('open'); }
 </script>
 </body>
 </html>
