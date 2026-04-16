@@ -84,14 +84,26 @@ def detect_file_type(filename: str, df: pd.DataFrame) -> str:
 # Key code generation
 # ---------------------------------------------------------------------------
 
-def build_key_code_list_id(list_id: int) -> str:
-    """Build the 8-char KeyCodeListId from year+week preamble + listId."""
+def build_key_code_list_id() -> str:
+    """Build the 8-char KeyCodeListId by reserving a slot in the DB.
+
+    Matches the C# logic exactly:
+      preamble = yy + ISOWeek.zfill(3)
+      listId   = GetNextIntelligentBarCode(count=1, serialNumber=preamble)
+      result   = (preamble + listId).zfill(8)
+    """
     now = datetime.now()
     year_part = now.strftime("%y")
     week = now.isocalendar()[1]
     preamble = year_part + str(week).zfill(3)
+
+    list_id = get_sequence_number_from_db(1, preamble)
+
     raw = preamble + str(list_id)
-    return raw.zfill(8)[:8]
+    result = raw.zfill(8)
+    if len(result) > 8:
+        raise ValueError(f"KeyCodeListId '{result}' exceeds 8 characters.")
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -120,9 +132,11 @@ def read_upload(filename: str, file_bytes: bytes) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def _clean(val) -> str:
-    """Clean a pandas cell value: convert NaN/None to empty string."""
+    """Clean a pandas cell value: convert NaN/None to empty string, collapse internal spaces."""
     s = str(val).strip() if val is not None else ""
-    return "" if s in ("nan", "None", "NaT") else s
+    if s in ("nan", "None", "NaT"):
+        return ""
+    return re.sub(r" {2,}", " ", s)
 
 
 def _is_org(record: dict) -> bool:
@@ -430,18 +444,24 @@ def validate(output_df: pd.DataFrame, file_type: str) -> list[dict]:
 def process_file(
     filename: str,
     file_bytes: bytes,
-    list_id: int,
     key_code_override: str | None = None,
 ) -> dict:
     """Main entry point. Returns processing results.
 
-    For house lists: sequence numbers are not needed (acquisition ID = all zeros).
-    For rental lists: pulls sequence numbers from database if configured,
-                      otherwise raises an error.
+    Key code is reserved from the DB (same as the C# script).
+    House lists only need the DB for the key code.
+    Rental lists also need it for AcquisitionId sequence numbers.
     """
     df = read_upload(filename, file_bytes)
     file_type = detect_file_type(filename, df)
-    key_code_list_id = key_code_override or build_key_code_list_id(list_id)
+
+    if not key_code_override and not db_available():
+        raise RuntimeError(
+            "Database connection not configured. "
+            "Set MAILWORKS_CONN_STRING environment variable."
+        )
+
+    key_code_list_id = key_code_override or build_key_code_list_id()
 
     if file_type == "house_list":
         output_df, proc_stats = process_house_list(df, key_code_list_id)
@@ -452,16 +472,9 @@ def process_file(
 
     else:
         # Rental list -- need sequence numbers from database
-        if db_available():
-            starting_acq_id = get_sequence_number_from_db(
-                len(df), "FoodBankAcquisitionId"
-            )
-        else:
-            raise RuntimeError(
-                "Database connection not configured. "
-                "Rental lists require the MailWorks database for sequence numbers. "
-                "Set MAILWORKS_CONN_STRING environment variable."
-            )
+        starting_acq_id = get_sequence_number_from_db(
+            len(df), "FoodBankAcquisitionId"
+        )
 
         output_df = process_rental_list(
             df, key_code_list_id, starting_acq_id, file_type

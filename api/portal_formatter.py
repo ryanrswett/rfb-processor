@@ -9,7 +9,7 @@ Transformations:
 - Split CityState into City + State
 - Split ZIP into 5-digit ZIP + zip4 (always empty)
 - Org names: FirstName = "Our Friends at ", LastName = org name
-- Individuals: Take PrimaryAddressee, replace " and " with " & ",
+- Individuals: Take PrimaryAddressee, collapse spaces,
   split on first space for FirstName/LastName
 - Add Reserve17 (KeyCodeListId), Reserve18 (sequential row number),
   Reserve19 (ScanLine), Reserve20 (PrimarySalutation)
@@ -19,6 +19,7 @@ Transformations:
 
 import io
 import csv
+import re
 import pandas as pd
 
 
@@ -31,9 +32,11 @@ PORTAL_COLUMNS = [
 
 
 def _clean(val) -> str:
-    """Clean a value: convert NaN/None/nan to empty string."""
+    """Clean a value: convert NaN/None/nan to empty string, collapse internal spaces."""
     s = str(val).strip() if val is not None else ""
-    return "" if s in ("nan", "None", "NaT") else s
+    if s in ("nan", "None", "NaT"):
+        return ""
+    return re.sub(r" {2,}", " ", s)
 
 
 def format_for_portal(
@@ -66,6 +69,9 @@ def format_for_portal(
         primary_addressee = _clean(row.get("PrimaryAddressee"))
         primary_salutation = _clean(row.get("PrimarySalutation"))
         address1 = _clean(row.get("AddressLine1"))
+        address2 = _clean(row.get("AddressLine2"))
+        if address2:
+            address1 = address1 + " " + address2
         city_state = _clean(row.get("CityState"))
         zip_full = _clean(row.get("ZIP"))
         acquisition_id = _clean(row.get("AcquisitionId"))
@@ -79,13 +85,12 @@ def format_for_portal(
 
         # Name transformation
         if is_org:
-            final_first = "Our Friends at "
+            final_first = "Our Friends at"
             final_last = org_name
             org_count += 1
         else:
-            # Use PrimaryAddressee, replace " and " with " & ", split on first space
-            addressee = primary_addressee.replace(" and ", " & ")
-            addressee = " ".join(addressee.split())  # collapse multiple spaces
+            # Use PrimaryAddressee, collapse multiple spaces, split on first space
+            addressee = " ".join(primary_addressee.split())
             space_idx = addressee.find(" ")
             if space_idx == -1:
                 final_first = addressee

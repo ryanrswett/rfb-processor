@@ -424,6 +424,7 @@ function handleFile(file) {
       };
 
       var sub = data.record_count.toLocaleString() + ' records processed.';
+      sub += ' Key code: ' + data.key_code_list_id + '.';
       if (data.and_replaced_count > 0) sub += ' ' + data.and_replaced_count + ' addressee corrections applied.';
       if (data.warnings && data.warnings.length > 0) sub += ' ' + data.warnings.length + ' warning(s).';
       $('step1Sub').textContent = sub;

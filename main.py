@@ -40,8 +40,6 @@ async def status():
 @app.post("/api/step1")
 async def step1_upload(
     file: UploadFile = File(...),
-    list_id: int = Form(1),
-    key_code_override: str = Form(""),
 ):
     """Step 1: Upload file, generate scanlines, validate."""
     if not file.filename:
@@ -53,8 +51,6 @@ async def step1_upload(
         result = process_file(
             filename=file.filename,
             file_bytes=contents,
-            list_id=list_id,
-            key_code_override=key_code_override if key_code_override else None,
         )
     except RuntimeError as e:
         raise HTTPException(400, str(e))
@@ -140,7 +136,7 @@ async def download(job_id: str, stage: str = "latest", segment: str = "all"):
         df = job["step2_df"]
         csv_bytes_fn = portal_to_csv_bytes
         org_col = "FirstName"
-        is_org = lambda row: row == "Our Friends at "
+        is_org = lambda row: row.strip() == "Our Friends at"
         suffix = "Portal1"
     else:
         df = job["step1_df"]
